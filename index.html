@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gesture 48</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+
+    <link href="style.css" rel="stylesheet">
+</head>
+
+<body class="flex items-center justify-center">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay">
+        <div class="loading-spinner mb-5"></div>
+        <p class="text-white text-xl">Initializing Camera & Hand Tracking...</p>
+        <p class="text-white/50 text-sm mt-2">Please allow camera access</p>
+    </div>
+
+    <!-- Guide Modal -->
+    <div id="guideModal" class="guide-modal show">
+        <div class="guide-content">
+            <h2 class="text-4xl font-bold text-white mb-3 text-center">How to Play</h2>
+            <p class="text-white/60 text-center mb-8">Master hand gesture control in 4 easy steps</p>
+
+            <div class="guide-step">
+                <div class="guide-step-number">1</div>
+                <div class="guide-step-content">
+                    <h3>&#x270B; Show Your Hand</h3>
+                    <p>Position your hand in front of the camera. You'll see a hand skeleton appear in the top-right
+                        corner.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="guide-step-number">2</div>
+                <div class="guide-step-content">
+                    <h3>&#x1F446; Move Inside Game Area</h3>
+                    <p>Move your hand over the game board. A cursor will appear to show your position.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="guide-step-number">3</div>
+                <div class="guide-step-content">
+                    <h3>&#x1F44C; Pinch to Activate Control</h3>
+                    <p>Pinch your thumb and index finger together inside the game area to enter Control Mode. The game
+                        border will glow blue.</p>
+                </div>
+            </div>
+
+            <div class="guide-step">
+                <div class="guide-step-number">4</div>
+                <div class="guide-step-content">
+                    <h3>&#x2194;&#xFE0F; Move Hand to Shift Tiles</h3>
+                    <p>While pinching, move your hand in any direction (up, down, left, right) to shift tiles.
+                        <strong>Each pinch makes ONE move</strong>, then automatically resets.</p>
+                </div>
+            </div>
+
+            <div class="mt-6 p-4 bg-rgba(255, 200, 100, 0.1) rounded-lg border border-rgba(255, 200, 100, 0.3)">
+                <p class="text-white text-sm text-center mb-2">
+                    <strong>&#x1F504; Important:</strong> After each move, open your hand and pinch again to make the
+                    next move.
+                </p>
+                <p class="text-white/60 text-xs text-center">
+                    This prevents accidental multiple moves!
+                </p>
+            </div>
+
+            <div class="mt-4 p-4 bg-rgba(79, 172, 254, 0.1) rounded-lg border border-rgba(79, 172, 254, 0.3)">
+                <p class="text-white/70 text-sm text-center mb-2">
+                    <strong class="text-white">&#x1F3AF; Goal:</strong> Combine tiles with the same number to reach
+                    2048!
+                </p>
+                <p class="text-white/60 text-xs text-center">
+                    &#x1F4A1; Tip: You can also use arrow keys on your keyboard
+                </p>
+            </div>
+
+            <button id="guideOkBtn"
+                class="w-full mt-6 px-8 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold text-lg rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+                OK, I Understand!
+            </button>
+        </div>
+    </div>
+
+    <!-- Hand Skeleton Display -->
+    <div class="hand-skeleton">
+        <div class="absolute top-2 left-3 flex items-center gap-2 z-10">
+            <div id="statusDot" class="status-dot"></div>
+            <span id="statusText" class="text-white/60 text-xs">No Hand</span>
+        </div>
+        <canvas id="skeletonCanvas" width="220" height="165"></canvas>
+    </div>
+
+    <!-- Pinch Indicator -->
+    <div id="pinchIndicator" class="pinch-indicator">
+        <div class="pinch-icon">👌</div>
+        <div class="pinch-text">Pinch to Control</div>
+        <div id="pinchStatus" class="pinch-status">Pinch thumb & index finger</div>
+        <div class="pinch-distance">
+            <div id="pinchDistanceBar" class="pinch-distance-bar" style="width: 0%"></div>
+        </div>
+    </div>
+
+    <!-- Cursor -->
+    <div id="cursor" class="cursor" style="opacity: 0;"></div>
+
+    <!-- Direction Arrow Indicator -->
+    <div id="directionArrow" class="direction-arrow">→</div>
+
+    <!-- Main Game Container -->
+    <div class="flex flex-col items-center gap-6">
+        <h1 class="text-5xl font-bold text-white tracking-wider">2048</h1>
+        <p class="text-white/50 text-sm -mt-4">Hand Gesture Control</p>
+
+        <div class="flex gap-5 mb-2">
+            <div class="score-container">
+                <div class="score-label">Score</div>
+                <div id="score" class="score-value">0</div>
+            </div>
+            <div class="score-container">
+                <div class="score-label">Best</div>
+                <div id="bestScore" class="score-value">0</div>
+            </div>
+        </div>
+
+        <div id="gameContainer" class="game-container">
+            <div id="gameGrid" class="grid-container">
+                <!-- Grid cells will be generated by JavaScript -->
+            </div>
+        </div>
+
+        <button id="newGameBtn"
+            class="mt-4 px-8 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold text-lg rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+            New Game
+        </button>
+    </div>
+
+    <!-- Gesture Indicator -->
+    <div id="gestureIndicator" class="gesture-indicator">
+        ✋ Move hand inside game area • 👌 Pinch to control
+    </div>
+
+    <!-- Game Over Overlay -->
+    <div id="gameOverOverlay" class="game-over-overlay">
+        <h2 class="text-6xl font-bold text-white mb-4">Game Over!</h2>
+        <p class="text-3xl text-white/70 mb-8">Score: <span id="finalScore">0</span></p>
+        <button id="playAgainBtn"
+            class="px-10 py-4 bg-gradient-to-r from-green-500 to-teal-500 text-white font-semibold text-xl rounded-xl hover:opacity-90 transition-opacity cursor-pointer">
+            Play Again
+        </button>
+    </div>
+
+    <!-- Hidden Video Element -->
+    <video id="videoInput" style="display: none;"></video>
+
+    <script src="script.js"></script>
+</body>
+
+</html>
